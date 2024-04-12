@@ -1,10 +1,21 @@
 import os
+import ipaddress
 import CloudFlare
 import waitress
 import flask
 
 
 app = flask.Flask(__name__)
+
+
+def change_ipv6_prefix(ipv6_address, new_prefix):
+    original_ipv6 = ipaddress.IPv6Address(ipv6_address)
+    new_prefix_net = ipaddress.IPv6Network(new_prefix, strict=False)
+    host_part = int(original_ipv6) & ~int(new_prefix_net.netmask)
+    new_ipv6_address = ipaddress.IPv6Address(
+        new_prefix_net.network_address + host_part)
+
+    return str(new_ipv6_address)
 
 
 @app.route('/', methods=['GET'])
@@ -38,23 +49,56 @@ def main():
         aaaa_record = cf.zones.dns_records.get(zones[0]['id'], params={
             'name': record_zone_concat, 'match': 'all', 'type': 'AAAA'})
 
-        if ipv4 is not None and not a_record:
-            return flask.jsonify({'status': 'error', 'message': f'A record for {record_zone_concat} does not exist.'}), 404
+        if ipv4 is not None:
+            if not a_record:
+                return flask.jsonify({'status': 'error', 'message': f'A record for {record_zone_concat} does not exist.'}), 404
+            old_ipv4 = a_record[0]['content']
+            if ipv4 != old_ipv4:
+                for record in cf.zones.dns_records.get(zones[0]['id'], data={'type': 'A', 'content': old_ipv4}):
+                    cf.zones.dns_records.put(
+                        zones[0]['id'],
+                        record['id'],
+                        data={
+                            'name': record['name'],
+                            'type': 'A',
+                            'content': ipv4,
+                            'proxied': record['proxied'],
+                            'ttl': record['ttl']
+                        }
+                    )
 
-        if ipv6 is not None and not aaaa_record:
-            return flask.jsonify({'status': 'error', 'message': f'AAAA record for {record_zone_concat} does not exist.'}), 404
-
-        if ipv4 is not None and a_record[0]['content'] != ipv4:
-            cf.zones.dns_records.put(zones[0]['id'], a_record[0]['id'], data={
-                                     'name': a_record[0]['name'], 'type': 'A', 'content': ipv4, 'proxied': a_record[0]['proxied'], 'ttl': a_record[0]['ttl']})
-            cf.zones.dns_records.put(zones[0]['id'], a_record[0]['id'], data={
-                                     'name': "build.rust", 'type': 'A', 'content': ipv4, 'proxied': a_record[0]['proxied'], 'ttl': a_record[0]['ttl']})
+        if ipv6 is not None:
+            if not aaaa_record:
+                return flask.jsonify({'status': 'error', 'message': f'AAAA record for {record_zone_concat} does not exist.'}), 404
+            old_ipv6 = aaaa_record[0]['content']
+            if ipv6 != old_ipv6:
+                for record in cf.zones.dns_records.get(zones[0]['id'], data={'type': 'AAAA', 'content': old_ipv6}):
+                    cf.zones.dns_records.put(
+                        zones[0]['id'],
+                        record['id'],
+                        data={
+                            'name': record['name'],
+                            'type': 'A',
+                            'content': ipv6,
+                            'proxied': record['proxied'],
+                            'ttl': record['ttl']
+                        }
+                    )
 
         if ipv6prefix is not None:
-            ipv6 = f"{ipv6prefix}:{ipv6}"
-        if ipv6 is not None and aaaa_record[0]['content'] != ipv6:
-            cf.zones.dns_records.put(zones[0]['id'], aaaa_record[0]['id'], data={
-                                     'name': aaaa_record[0]['name'], 'type': 'AAAA', 'content': ipv6, 'proxied': aaaa_record[0]['proxied'], 'ttl': aaaa_record[0]['ttl']})
+            for record in cf.zones.dns_records.get(zones[0]['id'], data={'type': 'AAAA'}):
+                cf.zones.dns_records.put(
+                    zones[0]['id'],
+                    record['id'],
+                    data={
+                        'name': record['name'],
+                        'type': 'A',
+                        'content': change_ipv6_prefix(record['content'], ipv6prefix),
+                        'proxied': record['proxied'],
+                        'ttl': record['ttl']
+                    }
+                )
+
     except CloudFlare.exceptions.CloudFlareAPIError as e:
         return flask.jsonify({'status': 'error', 'message': str(e)}), 500
 
