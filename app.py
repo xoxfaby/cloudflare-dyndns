@@ -88,7 +88,10 @@ def main():
                     )
 
         if ipv6prefix is not None:
+            print(ipv6prefix)
             for record in cf.zones.dns_records.get(zones[0]['id'], params={'type': 'AAAA'}):
+                print(record['content'])
+                print(change_ipv6_prefix(record['content'], ipv6prefix))
                 cf.zones.dns_records.put(
                     zones[0]['id'],
                     record['id'],
