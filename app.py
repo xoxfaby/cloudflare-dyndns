@@ -29,6 +29,8 @@ def main():
     cf = CloudFlare.CloudFlare(token=token)
 
     print(flask.request)
+    print(ipv6)
+    print(ipv6prefix)
 
     if not token:
         return flask.jsonify({'status': 'error', 'message': 'Missing token URL parameter.'}), 400
@@ -51,7 +53,7 @@ def main():
         aaaa_record = cf.zones.dns_records.get(zones[0]['id'], params={
             'name': record_zone_concat, 'match': 'all', 'type': 'AAAA'})
 
-        if ipv4 is not None:
+        if ipv4:
             if not a_record:
                 return flask.jsonify({'status': 'error', 'message': f'A record for {record_zone_concat} does not exist.'}), 404
             old_ipv4 = a_record[0]['content']
@@ -69,7 +71,7 @@ def main():
                         }
                     )
 
-        if ipv6 is not None:
+        if ipv6:
             if not aaaa_record:
                 return flask.jsonify({'status': 'error', 'message': f'AAAA record for {record_zone_concat} does not exist.'}), 404
             old_ipv6 = aaaa_record[0]['content']
@@ -87,11 +89,8 @@ def main():
                         }
                     )
 
-        if ipv6prefix is not None:
-            print(ipv6prefix)
+        if ipv6prefix:
             for record in cf.zones.dns_records.get(zones[0]['id'], params={'type': 'AAAA'}):
-                print(record['content'])
-                print(change_ipv6_prefix(record['content'], ipv6prefix))
                 cf.zones.dns_records.put(
                     zones[0]['id'],
                     record['id'],
