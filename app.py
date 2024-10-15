@@ -36,8 +36,8 @@ def main():
         return flask.jsonify({'status': 'error', 'message': 'Missing token URL parameter.'}), 400
     if not zone:
         return flask.jsonify({'status': 'error', 'message': 'Missing zone URL parameter.'}), 400
-    if not ipv4 and not ipv6:
-        return flask.jsonify({'status': 'error', 'message': 'Missing ipv4 or ipv6 URL parameter.'}), 400
+    if not ipv4 and not ipv6 and not ipv6prefix:
+        return flask.jsonify({'status': 'error', 'message': 'Missing ipv4, ipv6 or ipv6family URL parameter.'}), 400
 
     try:
         zones = cf.zones.get(params={'name': zone})
@@ -78,6 +78,7 @@ def main():
             if ipv6 != old_ipv6:
                 for record in cf.zones.dns_records.get(zones[0]['id'], params={'type': 'AAAA', 'content': old_ipv6}):
                     cf.zones.dns_records.put(
+                        print("Replacing", record)
                         zones[0]['id'],
                         record['id'],
                         data={
@@ -91,6 +92,10 @@ def main():
 
         if ipv6prefix:
             for record in cf.zones.dns_records.get(zones[0]['id'], params={'type': 'AAAA'}):
+                print("Old IP:", record['content'])
+                print("Old New IP:", change_ipv6_prefix(
+                    record['content'], ipv6prefix))
+                print("Record:", record)
                 cf.zones.dns_records.put(
                     zones[0]['id'],
                     record['id'],
