@@ -77,8 +77,8 @@ def main():
             old_ipv6 = aaaa_record[0]['content']
             if ipv6 != old_ipv6:
                 for record in cf.zones.dns_records.get(zones[0]['id'], params={'type': 'AAAA', 'content': old_ipv6}):
+                    print("Replacing", record)
                     cf.zones.dns_records.put(
-                        print("Replacing", record)
                         zones[0]['id'],
                         record['id'],
                         data={
