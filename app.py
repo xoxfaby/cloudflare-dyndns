@@ -89,9 +89,10 @@ def main():
         if ipv6:
             if not aaaa_record:
                 if not create_new:
-                    flask.jsonify(
+                    return flask.jsonify(
                         {'status': 'error', 'message': f'AAAA record for {record_zone_concat} does not exist.'}), 404
 
+                print(f"Creating new record {name}: {ipv6}")
                 cf.zones.dns_records.post(
                     zones[0]['id'],
                     data={
@@ -106,6 +107,7 @@ def main():
                 old_ipv6 = aaaa_record[0]['content']
 
                 if ipv6 != old_ipv6:
+                    print("Replacing IPv6 from directly submitted IP.")
                     print("Old IP:", record['content'])
                     for record in cf.zones.dns_records.get(zones[0]['id'], params={'type': 'AAAA', 'content': old_ipv6}):
 
@@ -124,6 +126,7 @@ def main():
                         )
 
         if ipv6prefix:
+            print("Replacing IPv6 from old IPv6.")
             for record in cf.zones.dns_records.get(zones[0]['id'], params={'type': 'AAAA'}):
                 new_IP = change_ipv6_prefix(record['content'], ipv6prefix)
                 print("Old IP:", record['content'])
@@ -140,6 +143,9 @@ def main():
                         'ttl': record['ttl']
                     }
                 )
+
+        
+        print("Done")
 
     except CloudFlare.exceptions.CloudFlareAPIError as e:
         print(flask.jsonify({'status': 'error', 'message': str(e)}))
