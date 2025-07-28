@@ -30,6 +30,7 @@ def main():
     cf = CloudFlare.CloudFlare(token=token)
 
     print(flask.request)
+    print(flask.args)
     print(ipv6)
     print(ipv6prefix)
 
